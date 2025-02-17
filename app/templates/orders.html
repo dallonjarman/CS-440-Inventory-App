@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Place an Order</h1>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    {{ form.product_id.label }} {{ form.product_id() }}<br>
+    {{ form.quantity.label }} {{ form.quantity() }}<br>
+    {{ form.submit() }}
+</form>
+{% endblock %}

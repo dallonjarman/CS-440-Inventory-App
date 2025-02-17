@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h1>Products</h1>
+    <a href="{{ url_for('add_product') }}" class="btn">Add New Product</a>
+    <div class="product-grid">
+        {% for product in products %}
+        <div class="product-card {% if product.stock <= 0 %}out-of-stock{% endif %}">
+            <h3>{{ product.name }}</h3>
+            <p class="price">${{ "%.2f"|format(product.price) }}</p>
+            <p class="stock">Stock: {{ product.stock }}</p>
+            {% if product.stock > 0 %}
+                <a href="{{ url_for('orders', product_id=product.id) }}" class="btn">Order Now</a>
+            {% else %}
+                <p class="out-of-stock-text">Out of Stock</p>
+                <a href="{{ url_for('restock_product', product_id=product.id) }}" class="btn btn-restock">Restock</a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

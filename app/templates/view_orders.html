@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h1>Your Orders</h1>
+    <div class="orders-list">
+        {% for order in orders %}
+        <div class="order-card">
+            <h3>Order #{{ order.id }}</h3>
+            <p>Product: {{ order.product.name }}</p>
+            <p>Quantity: {{ order.quantity }}</p>
+            <p>Total: ${{ "%.2f"|format(order.product.price * order.quantity) }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    <a href="{{ url_for('orders') }}" class="btn">Place New Order</a>
+</div>
+{% endblock %}
