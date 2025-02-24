@@ -3,7 +3,27 @@ from functools import wraps
 from .models import User, Product, Order
 from .forms import RegistrationForm, LoginForm, OrderForm, ProductForm, RestockForm
 from . import db
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
+def handle_db_errors(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        try:
+            return f(*args, **kwargs)
+        except IntegrityError:
+            db.session.rollback()
+            flash('Database error: Duplicate entry or constraint violation.')
+            app.logger.error('IntegrityError in database operation')
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            flash('An error occurred while accessing the database.')
+            app.logger.error(f'Database error: {str(e)}')
+        except Exception as e:
+            db.session.rollback()
+            flash('An unexpected error occurred.')
+            app.logger.error(f'Unexpected error: {str(e)}')
+        return redirect(url_for('index'))
+    return decorated_function
 
 def login_required(f):
     @wraps(f)
@@ -21,6 +41,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/register', methods=['GET', 'POST'])
+@handle_db_errors
 def register():
     if 'user_id' in session:
         flash('You are already logged in!')
@@ -28,38 +49,27 @@ def register():
         
     form = RegistrationForm()
     if form.validate_on_submit():
-        try:
-            # Check for existing user before creating
-            existing_user = User.query.filter(
-                db.or_(
-                    User.username == form.username.data,
-                    User.email == form.email.data
-                )
-            ).first()
-            
-            if existing_user:
-                if existing_user.username == form.username.data:
-                    form.username.errors.append('Username already taken')
-                if existing_user.email == form.email.data:
-                    form.email.errors.append('Email already registered')
-                return render_template('register.html', form=form)
-            
-            # Create new user if no duplicates found
-            user = User(username=form.username.data, email=form.email.data)
-            user.set_password(form.password.data)
-            db.session.add(user)
-            db.session.commit()
-            
-            flash('Registration successful! Please log in.')
-            return redirect(url_for('login'))
-            
-        except IntegrityError:
-            db.session.rollback()
-            flash('Registration failed. Please try again with different credentials.')
-        except Exception as e:
-            db.session.rollback()
-            flash('An error occurred during registration.')
-            app.logger.error(f'Registration error: {str(e)}')
+        existing_user = User.query.filter(
+            db.or_(
+                User.username == form.username.data,
+                User.email == form.email.data
+            )
+        ).first()
+        
+        if existing_user:
+            if existing_user.username == form.username.data:
+                form.username.errors.append('Username already taken')
+            if existing_user.email == form.email.data:
+                form.email.errors.append('Email already registered')
+            return render_template('register.html', form=form)
+        
+        user = User(username=form.username.data, email=form.email.data)
+        user.set_password(form.password.data)
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Registration successful! Please log in.')
+        return redirect(url_for('login'))
             
     return render_template('register.html', form=form)
 
@@ -93,6 +103,7 @@ def products():
 
 @app.route('/add_product', methods=['GET', 'POST'])
 @login_required
+@handle_db_errors
 def add_product():
     form = ProductForm()
     if form.validate_on_submit():
@@ -105,6 +116,7 @@ def add_product():
 
 @app.route('/orders', methods=['GET', 'POST'])
 @login_required
+@handle_db_errors
 def orders():
     form = OrderForm()
     # Only show products with stock > 0
@@ -129,6 +141,7 @@ def orders():
 
 @app.route('/restock/<int:product_id>', methods=['GET', 'POST'])
 @login_required
+@handle_db_errors
 def restock_product(product_id):
     product = Product.query.get_or_404(product_id)
     form = RestockForm()
